@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heck Rush</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            background-color: #000;
+            image-rendering: pixelated;
+        }
+        
+        #game-container {
+            position: relative;
+        }
+        
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #600;
+            color: white;
+            border: 2px solid #900;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background-color: #900;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="start-screen">
+            <h1>HECK RUSH</h1>
+            <p>Tuşlar: W (Zıpla), A/D (Hareket Et)</p>
+            <p>Hedef: Lav engellerinden kaçın ve mümkün olduğunca uzun süre hayatta kal!</p>
+            <button id="start-button">BAŞLA</button>
+        </div>
+        <div id="game-over-screen">
+            <h1>OYUN BİTTİ</h1>
+            <p>Skorun: <span id="final-score">0</span></p>
+            <button id="restart-button">TEKRAR OYNA</button>
+        </div>
+    </div>
+
+    <script>
+        // Canvas ve 2D context başlatma
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Ekran elemanları
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const finalScoreElement = document.getElementById('final-score');
+        
+        // Web Audio API için ses sistemi
+        let audioContext;
+        let backgroundMusicGain;
+        let backgroundMusicOscillator;
+        let isMusicPlaying = false;
+        
+        // Ses sistemini başlat
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        // Zıplama sesi oluştur
+        function playJumpSound() {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            
+            oscillator.type = 'square';
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+        }
+        
+        // Ölüm sesi oluştur
+        function playDeathSound() {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.5);
+            
+            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.type = 'sawtooth';
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+        
+        // Arka plan müziği başlat
+        function startBackgroundMusic() {
+            if (!audioContext || isMusicPlaying) return;
+            
+            backgroundMusicOscillator = audioContext.createOscillator();
+            backgroundMusicGain = audioContext.createGain();
+            
+            backgroundMusicOscillator.connect(backgroundMusicGain);
+            backgroundMusicGain.connect(audioContext.destination);
+            
+            // Basit bir melodi oluştur
+            const frequencies = [220, 246.94, 261.63, 293.66, 220, 246.94, 261.63, 293.66];
+            let currentNote = 0;
+            
+            backgroundMusicGain.gain.setValueAtTime(0.1, audioContext.currentTime);
+            backgroundMusicOscillator.type = 'triangle';
+            
+            function playNextNote() {
+                if (!isMusicPlaying) return;
+                
+                backgroundMusicOscillator.frequency.setValueAtTime(
+                    frequencies[currentNote], 
+                    audioContext.currentTime
+                );
+                
+                currentNote = (currentNote + 1) % frequencies.length;
+                setTimeout(playNextNote, 500);
+            }
+            
+            backgroundMusicOscillator.start(audioContext.currentTime);
+            isMusicPlaying = true;
+            playNextNote();
+        }
+        
+        // Arka plan müziği durdur
+        function stopBackgroundMusic() {
+            if (backgroundMusicOscillator && isMusicPlaying) {
+                backgroundMusicOscillator.stop();
+                isMusicPlaying = false;
+            }
+        }
+        
+        // Oyun değişkenleri
+        let gameRunning = false;
+        let score = 0;
+        let gameSpeed = 5;
+        
+        // Oyuncu karakteri
+        const player = {
+            x: 100,
+            y: 0,
+            width: 32,
+            height: 32,
+            velocityY: 0,
+            jumpPower: 15,
+            gravity: 0.8,
+            grounded: false,
+            color: '#FFF'
+        };
+        
+        // Zemin platformu
+        const ground = {
+            x: 0,
+            y: canvas.height - 50,
+            width: canvas.width,
+            height: 50,
+            color: '#333'
+        };
+        
+        // Engeller dizisi
+        let obstacles = [];
+        
+        // Arka plan bileşenleri
+        let backgroundElements = [];
+        
+        // Tuş kontrolleri
+        const keys = {
+            w: false,
+            a: false,
+            d: false
+        };
+        
+        // Oyuncu hareketi için event listener'lar
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'w') keys.w = true;
+            if (e.key.toLowerCase() === 'a') keys.a = true;
+            if (e.key.toLowerCase() === 'd') keys.d = true;
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (e.key.toLowerCase() === 'w') keys.w = false;
+            if (e.key.toLowerCase() === 'a') keys.a = false;
+            if (e.key.toLowerCase() === 'd') keys.d = false;
+        });
+        
+        // Oyun başlatma butonuna tıklama olayı
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        
+        // Rastgele sayı üreteci
+        function random(min, max) {
+            return Math.floor(Math.random() * (max - min + 1) + min);
+        }
+        
+        // Çarpışma tespiti
+        function checkCollision(obj1, obj2) {
+            return obj1.x < obj2.x + obj2.width &&
+                   obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height &&
+                   obj1.y + obj1.height > obj2.y;
+        }
+        
+        // Yeni bir engel oluştur
+        function createObstacle() {
+            const height = random(20, 80);
+            const obstacle = {
+                x: canvas.width,
+                y: ground.y - height,
+                width: random(20, 50),
+                height: height,
+                color: '#A00'
+            };
+            
+            // Bazı engellere parçacık efektleri ekle
+            if (Math.random() > 0.5) {
+                obstacle.particles = [];
+                obstacle.particleCount = random(3, 8);
+                obstacle.color = '#F50';
+            }
+            
+            obstacles.push(obstacle);
+        }
+        
+        // Yeni bir arka plan elementi oluştur
+        function createBackgroundElement() {
+            const element = {
+                x: canvas.width,
+                y: random(ground.y - 200, ground.y - 10),
+                width: random(50, 150),
+                height: random(10, 30),
+                color: '#222',
+                speed: gameSpeed * 0.3
+            };
+            backgroundElements.push(element);
+        }
+        
+        // Oyunu başlat
+        function startGame() {
+            // Ses sistemini başlat
+            initAudio();
+            
+            // Oyun değişkenlerini sıfırla
+            player.x = 100;
+            player.y = ground.y - player.height;
+            player.velocityY = 0;
+            obstacles = [];
+            backgroundElements = [];
+            score = 0;
+            gameSpeed = 5;
+            gameRunning = true;
+            
+            // Başlangıç ve bitiş ekranlarını gizle
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            // Arka plan müziği başlat
+            startBackgroundMusic();
+            
+            // Oyun döngüsünü başlat
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Oyunu bitir
+        function gameOver() {
+            gameRunning = false;
+            stopBackgroundMusic();
+            playDeathSound();
+            
+            finalScoreElement.textContent = Math.floor(score);
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Oyun döngüsü
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+            
+            // Ekranı temizle
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Skoru güncelle
+            score += 0.1;
+            
+            // Oyun hızını zamanla artır
+            if (score > 0 && score % 100 < 0.1) {
+                gameSpeed += 0.5;
+            }
+            
+            // Arka plan elementlerini çiz ve güncelle
+            for (let i = backgroundElements.length - 1; i >= 0; i--) {
+                const element = backgroundElements[i];
+                
+                // Arka plan elementini hareket ettir
+                element.x -= element.speed;
+                
+                // Arka plan elementi ekrandan çıktı mı kontrol et
+                if (element.x + element.width < 0) {
+                    backgroundElements.splice(i, 1);
+                    continue;
+                }
+                
+                // Arka plan elementini çiz
+                ctx.fillStyle = element.color;
+                ctx.fillRect(element.x, element.y, element.width, element.height);
+            }
+            
+            // Belirli bir olasılıkla yeni arka plan elementi oluştur
+            if (Math.random() < 0.02) {
+                createBackgroundElement();
+            }
+            
+            // Zemini çiz
+            ctx.fillStyle = ground.color;
+            ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
+            
+            // Oyuncuyu çiz
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Oyuncu gözlerini çiz (pixel sanat efekti)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + player.width - 12, player.y + 8, 4, 4);
+            ctx.fillRect(player.x + player.width - 22, player.y + 8, 4, 4);
+            
+            // Engelleri çiz ve güncelle
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                
+                // Engeli hareket ettir
+                obstacle.x -= gameSpeed;
+                
+                // Engel ekrandan çıktı mı kontrol et
+                if (obstacle.x + obstacle.width < 0) {
+                    obstacles.splice(i, 1);
+                    continue;
+                }
+                
+                // Parçacık efektleri varsa güncelle ve çiz
+                if (obstacle.particles) {
+                    // Her engel için rastgele yeni parçacıklar oluştur
+                    if (obstacle.particles.length < obstacle.particleCount && Math.random() < 0.3) {
+                        obstacle.particles.push({
+                            x: obstacle.x + random(0, obstacle.width),
+                            y: obstacle.y - random(5, 15),
+                            size: random(2, 5),
+                            speedY: -random(1, 3) / 2,
+                            speedX: random(-1, 1) / 2,
+                            life: 1.0
+                        });
+                    }
+                    
+                    // Parçacıkları çiz ve güncelle
+                    for (let j = obstacle.particles.length - 1; j >= 0; j--) {
+                        const p = obstacle.particles[j];
+                        
+                        p.x += p.speedX;
+                        p.y += p.speedY;
+                        p.life -= 0.02;
+                        
+                        if (p.life <= 0) {
+                            obstacle.particles.splice(j, 1);
+                            continue;
+                        }
+                        
+                        ctx.fillStyle = `rgba(255, 100, 0, ${p.life})`;
+                        ctx.fillRect(p.x, p.y, p.size, p.size);
+                    }
+                }
+                
+                // Engeli çiz
+                ctx.fillStyle = obstacle.color;
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                
+                // Engelde "lav dişleri" çiz
+                if (obstacle.color === '#F50') {
+                    ctx.fillStyle = '#F70';
+                    const teethCount = Math.floor(obstacle.width / 8);
+                    for (let t = 0; t < teethCount; t++) {
+                        ctx.fillRect(obstacle.x + t * 8, obstacle.y - 4, 4, 4);
+                    }
+                }
+                
+                // Oyuncu ve engel çarpışmasını kontrol et
+                if (checkCollision(player, obstacle)) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // Belirli bir olasılıkla yeni engel oluştur
+            if (Math.random() < 0.01 + (score / 10000)) {
+                createObstacle();
+            }
+            
+            // Oyuncu kontrollerini ve fiziği işle
+            
+            // Yere değiyor mu kontrol et
+            player.grounded = player.y + player.height >= ground.y;
+            
+            // Yerçekimi etkisi
+            if (!player.grounded) {
+                player.velocityY += player.gravity;
+            } else {
+                player.velocityY = 0;
+                player.y = ground.y - player.height; // Yere oturma
+            }
+            
+            // Zıplama kontrolü
+            if (keys.w && player.grounded) {
+                player.velocityY = -player.jumpPower;
+                playJumpSound();
+            }
+            
+            // Sol-sağ hareket kontrolü
+            if (keys.a) {
+                player.x -= 5;
+                if (player.x < 0) player.x = 0;
+            }
+            
+            if (keys.d) {
+                player.x += 5;
+                if (player.x + player.width > canvas.width) {
+                    player.x = canvas.width - player.width;
+                }
+            }
+            
+            // Oyuncu y pozisyonunu güncelle
+            player.y += player.velocityY;
+            
+            // Oyuncu yere düştü mü kontrol et
+            if (player.y + player.height > ground.y) {
+                player.y = ground.y - player.height;
+                player.velocityY = 0;
+            }
+            
+            // Skoru ekrana çiz
+            ctx.fillStyle = '#FFF';
+            ctx.font = '24px Courier New';
+            ctx.fillText(`Skor: ${Math.floor(score)}`, 20, 40);
+            
+            // Bir sonraki frame'i çağır
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Oyun ekranını ilk yüklenmede ayarla
+        window.onload = function() {
+            startScreen.style.display = 'flex';
+        };
+    </script>
+</body>
+</html>
