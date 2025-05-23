@@ -13,17 +13,17 @@ Heck Rush'ta oyuncu, sürekli hareket halindeki bir dünyada lav engellerinden k
 **Artan Zorluk:** Oyun ilerledikçe hız ve engel sıklığı artar<br>
 **Akıcı Kontroller:** Responsive klavye kontrolleri<br>
 **Skor Sistemi**: Gerçek zamanlı skor takibi<br><br><br><br><br>
-** 📷 Oyun Görselleri**<br>
+📷 Oyun Görselleri<br>
 ![resize-1748029451845082632Screenshot86](https://github.com/user-attachments/assets/02f50d6b-900b-4d9d-8ce8-b9dd92e3d835)<br>
 ![resize-1748029330139031059Screenshot85](https://github.com/user-attachments/assets/3ce6a808-c0ac-4d32-8f9d-7285ceabedc5)<br>
 ![resize-1748029451845082632Screenshot86](https://github.com/user-attachments/assets/cdc96108-3d84-4b01-9f2d-f0bbc4f1dbd4)<br>
 
 <br><br>
-🎥 Oynanış Videosu
+🎥 Oynanış Videosu<br>
 [YouTube Videosunu İzle](https://www.youtube.com/watch?v=xxxxx)
 <br><br>
 
 **kaynakça:**<br>
-W3school.com
-cluade.ai
-chatgpt
+W3school.com<br>
+claude.ai<br>
+chatgpt<br>
